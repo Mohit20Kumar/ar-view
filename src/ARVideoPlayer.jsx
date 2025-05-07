@@ -146,9 +146,6 @@ const ARVideoPlayer = () => {
     <div className='ar-container' ref={containerRef}>
       <style>
         {`
-            .ar-container {
-                background-image: url('/bgar.jpg'); /* Replace with your background image URL */
-            }
             .instructions {
                 position: absolute;
                 top: 20px;
