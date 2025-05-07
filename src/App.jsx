@@ -94,7 +94,12 @@ export function App() {
           onChange={(e) => setVideoScale(parseFloat(e.target.value))}
         />
       </div>
-      <Canvas>
+      <Canvas
+        onCreated={({ gl }) => {
+          gl.xr.addEventListener("sessionend", () => {
+            if (videoRef.current) videoRef.current.pause();
+          });
+        }}>
         <XR store={store}>
           <mesh
             position={[0, 1, -2]}
