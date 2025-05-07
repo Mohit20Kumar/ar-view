@@ -12,6 +12,7 @@
   "dependencies": {
     "@react-three/drei": "^10.0.7",
     "@react-three/fiber": "^9.1.2",
+    "@react-three/handle": "^6.6.16",
     "@react-three/xr": "^6.6.16",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
