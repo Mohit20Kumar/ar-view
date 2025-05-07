@@ -30,7 +30,7 @@ const ARVideoPlayer = () => {
 
     // Create video texture
     const video = document.createElement("video");
-    video.src = "path/to/your/video.mp4"; // Replace with your video URL
+    video.src = "/chef.mp4"; // Replace with your video URL
     video.crossOrigin = "anonymous";
     video.loop = true;
     video.muted = true;
