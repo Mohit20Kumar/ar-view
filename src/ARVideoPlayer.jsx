@@ -5,91 +5,125 @@ import { ARButton } from "three/examples/jsm/webxr/ARButton.js";
 const ARVideoPlayer = () => {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
-  const [error, setError] = useState(null);
-  const [arSupported, setArSupported] = useState(null);
+  const [status, setStatus] = useState("Initializing...");
 
   useEffect(() => {
-    // Check if WebXR is supported
+    // Check for WebXR support
     if (!navigator.xr) {
-      setError("WebXR not supported in this browser");
-      setArSupported(false);
+      setStatus("WebXR not supported in this browser");
       return;
     }
+
+    let video, videoTexture, videoMaterial;
+    let videoPlane, scene, camera, renderer;
+
+    // Create and load video first - this is crucial for mobile browsers
+    video = document.createElement("video");
+    video.src = "/path/to/your/video.mp4"; // Make sure this path is correct
+    video.crossOrigin = "anonymous";
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true; // Essential for iOS
+    video.preload = "auto";
+    video.setAttribute("playsinline", ""); // Another way to ensure it works on iOS
+    video.setAttribute("webkit-playsinline", "");
+    videoRef.current = video;
+
+    // Pre-load the video before AR initialization
+    video.load();
+
+    // Add a click event to the document to help with autoplay restrictions
+    const handleUserInteraction = () => {
+      video.play().catch((e) => console.error("Video play error:", e));
+      document.removeEventListener("click", handleUserInteraction);
+      document.removeEventListener("touchstart", handleUserInteraction);
+    };
+    document.addEventListener("click", handleUserInteraction);
+    document.addEventListener("touchstart", handleUserInteraction);
 
     // Check if AR is supported
     navigator.xr
       .isSessionSupported("immersive-ar")
       .then((supported) => {
-        setArSupported(supported);
         if (!supported) {
-          setError("AR not supported on this device");
+          setStatus("AR not supported on this device");
           return;
         }
 
+        setStatus("AR supported, initializing...");
         initAR();
       })
       .catch((err) => {
-        setError(`Error checking AR support: ${err.message}`);
+        setStatus(`Error checking AR support: ${err.message}`);
         console.error(err);
       });
 
     function initAR() {
       try {
         // Create scene, camera, and renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(
           75,
           window.innerWidth / window.innerHeight,
           0.1,
           1000
         );
-        const renderer = new THREE.WebGLRenderer({
+        renderer = new THREE.WebGLRenderer({
           antialias: true,
           alpha: true,
+          preserveDrawingBuffer: true, // May help with video rendering
         });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 0); // Transparent background
         renderer.xr.enabled = true;
         containerRef.current.appendChild(renderer.domElement);
 
-        // Add AR session button with error handling
-        let arButton;
-        try {
-          arButton = ARButton.createButton(renderer, {
-            requiredFeatures: ["hit-test"],
-            optionalFeatures: ["dom-overlay"],
-            domOverlay: { root: document.body },
-          });
-          document.body.appendChild(arButton);
-        } catch (err) {
-          setError(`Error creating AR button: ${err.message}`);
-          console.error(err);
-          return;
-        }
+        // Create a debug object to show in scene before video loads
+        const debugCube = new THREE.Mesh(
+          new THREE.BoxGeometry(0.2, 0.2, 0.2),
+          new THREE.MeshBasicMaterial({ color: 0xff0000 })
+        );
+        debugCube.position.set(0, 0, -1);
+        scene.add(debugCube);
 
         // Create video texture
-        const video = document.createElement("video");
-        video.src = "/chef.mp4"; // Replace with your video URL
-        video.crossOrigin = "anonymous";
-        video.loop = true;
-        video.muted = false;
-        videoRef.current = video;
-
-        const videoTexture = new THREE.VideoTexture(video);
+        videoTexture = new THREE.VideoTexture(video);
         videoTexture.minFilter = THREE.LinearFilter;
         videoTexture.magFilter = THREE.LinearFilter;
+        videoTexture.format = THREE.RGBAFormat;
+        videoTexture.generateMipmaps = false;
+
+        // Create video plane with material
+        videoMaterial = new THREE.MeshBasicMaterial({
+          map: videoTexture,
+          side: THREE.DoubleSide, // Visible from both sides
+          transparent: true,
+        });
 
         // Create video plane
-        const geometry = new THREE.PlaneGeometry(1, 0.5625); // 16:9 aspect ratio
-        const material = new THREE.MeshBasicMaterial({ map: videoTexture });
-        const videoPlane = new THREE.Mesh(geometry, material);
+        const aspect = video.videoWidth / video.videoHeight || 16 / 9;
+        const videoGeometry = new THREE.PlaneGeometry(1 * aspect, 1);
+        videoPlane = new THREE.Mesh(videoGeometry, videoMaterial);
 
         // Position the video in the AR space
-        videoPlane.position.set(0, 0, -1);
+        videoPlane.position.set(0, 0, -1.5);
         scene.add(videoPlane);
 
-        // Add lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        // Add lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(0, 1, 0);
+        scene.add(directionalLight);
+
+        // Add AR session button
+        const arButton = ARButton.createButton(renderer, {
+          requiredFeatures: ["hit-test"],
+          optionalFeatures: ["dom-overlay"],
+          domOverlay: { root: document.body },
+        });
+        document.body.appendChild(arButton);
 
         // Handle window resize
         const handleResize = () => {
@@ -99,80 +133,147 @@ const ARVideoPlayer = () => {
         };
         window.addEventListener("resize", handleResize);
 
-        // AR session start event
+        // AR session events
         renderer.xr.addEventListener("sessionstart", () => {
           console.log("AR session started");
-          video.play().catch((e) => console.error("Video playback error:", e));
+          setStatus("AR session started");
+
+          // Try to play video on session start
+          video
+            .play()
+            .then(() => {
+              console.log("Video playing in AR");
+              setStatus("Video playing in AR");
+
+              // Update video texture when video is playing
+              videoTexture.needsUpdate = true;
+
+              // Make sure red debug cube is removed once video is playing
+              scene.remove(debugCube);
+            })
+            .catch((e) => {
+              console.error("Video play error in AR session:", e);
+              setStatus(`Video play error: ${e.message}`);
+            });
         });
 
-        // AR session end event
         renderer.xr.addEventListener("sessionend", () => {
           console.log("AR session ended");
+          setStatus("AR session ended");
           video.pause();
         });
 
-        // Animation loop
-        renderer.setAnimationLoop(() => {
-          renderer.render(scene, camera);
+        // Debug video events
+        video.addEventListener("loadedmetadata", () => {
+          console.log(
+            "Video metadata loaded",
+            video.videoWidth,
+            video.videoHeight
+          );
+          setStatus("Video metadata loaded");
+
+          // Update plane aspect ratio with actual video dimensions
+          if (videoPlane && video.videoWidth && video.videoHeight) {
+            const actualAspect = video.videoWidth / video.videoHeight;
+            videoPlane.scale.x = actualAspect;
+          }
         });
 
-        // Cleanup
-        return () => {
-          window.removeEventListener("resize", handleResize);
-          renderer.setAnimationLoop(null);
-          if (arButton && arButton.parentNode) {
-            document.body.removeChild(arButton);
+        video.addEventListener("playing", () => {
+          console.log("Video playing event");
+          videoTexture.needsUpdate = true;
+          setStatus("Video playing");
+        });
+
+        video.addEventListener("error", (e) => {
+          console.error("Video error:", e);
+          setStatus(`Video error: ${e.type}`);
+        });
+
+        // Animation loop
+        const animate = () => {
+          if (videoTexture && video.readyState >= 2) {
+            videoTexture.needsUpdate = true;
           }
-          if (
-            containerRef.current &&
-            containerRef.current.contains(renderer.domElement)
-          ) {
-            containerRef.current.removeChild(renderer.domElement);
+
+          // Make debug cube rotate
+          if (debugCube) {
+            debugCube.rotation.x += 0.01;
+            debugCube.rotation.y += 0.01;
           }
-          scene.remove(videoPlane);
-          geometry.dispose();
-          material.dispose();
-          videoTexture.dispose();
+
+          renderer.render(scene, camera);
         };
+
+        renderer.setAnimationLoop(animate);
       } catch (err) {
-        setError(`Error initializing AR: ${err.message}`);
-        console.error(err);
+        console.error("AR initialization error:", err);
+        setStatus(`AR error: ${err.message}`);
       }
     }
+
+    // Cleanup
+    return () => {
+      if (renderer) {
+        renderer.setAnimationLoop(null);
+
+        if (containerRef.current && renderer.domElement) {
+          containerRef.current.removeChild(renderer.domElement);
+        }
+
+        const arButton = document.querySelector('button[data-type="ar"]');
+        if (arButton) {
+          arButton.remove();
+        }
+      }
+
+      if (video) {
+        video.pause();
+        video.src = "";
+        video.load();
+      }
+
+      document.removeEventListener("click", handleUserInteraction);
+      document.removeEventListener("touchstart", handleUserInteraction);
+    };
   }, []);
 
   return (
-    <div className='ar-container' ref={containerRef}>
-      {error && (
-        <div
-          className='error-message'
-          style={{ color: "red", padding: "20px" }}>
-          <h3>Error:</h3>
-          <p>{error}</p>
-          <p>Tips:</p>
-          <ul>
-            <li>Make sure you're using HTTPS</li>
-            <li>Try on a compatible mobile device</li>
-            <li>Use Chrome or another WebXR-compatible browser</li>
-            <li>Check that AR is supported on your device</li>
-          </ul>
-        </div>
-      )}
-      {!error && arSupported === false && (
-        <div className='not-supported' style={{ padding: "20px" }}>
-          <h3>WebXR AR Not Supported</h3>
-          <p>Your browser or device doesn't support WebXR Augmented Reality.</p>
-          <p>
-            Try using a compatible mobile device with Chrome or the WebXR Viewer
-            app.
-          </p>
-        </div>
-      )}
-      {!error && arSupported && (
-        <div className='instructions'>
-          <p>Tap the "Start AR" button and point your camera at a surface.</p>
-        </div>
-      )}
+    <div
+      className='ar-container'
+      style={{ position: "relative", width: "100%", height: "100vh" }}
+      ref={containerRef}>
+      <div
+        className='status-overlay'
+        style={{
+          position: "absolute",
+          bottom: "20px",
+          left: "20px",
+          padding: "10px",
+          backgroundColor: "rgba(0,0,0,0.7)",
+          color: "white",
+          borderRadius: "5px",
+          zIndex: 100,
+        }}>
+        Status: {status}
+      </div>
+
+      <div
+        className='instructions'
+        style={{
+          position: "absolute",
+          top: "20px",
+          left: "0",
+          width: "100%",
+          textAlign: "center",
+          padding: "10px",
+          backgroundColor: "rgba(0,0,0,0.5)",
+          color: "white",
+          zIndex: 100,
+        }}>
+        <p>Tap the "Start AR" button and point your camera at a surface.</p>
+        <p>If video doesn't play, tap the screen once.</p>
+      </div>
     </div>
   );
 };
