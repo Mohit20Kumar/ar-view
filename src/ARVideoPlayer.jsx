@@ -19,7 +19,7 @@ const ARVideoPlayer = () => {
 
     // Create and load video first - this is crucial for mobile browsers
     video = document.createElement("video");
-    video.src = "/path/to/your/video.mp4"; // Make sure this path is correct
+    video.src = "/chef.mp4"; // Make sure this path is correct
     video.crossOrigin = "anonymous";
     video.loop = true;
     video.muted = true;
