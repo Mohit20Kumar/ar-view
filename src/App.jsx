@@ -2,25 +2,20 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { XR, createXRStore } from "@react-three/xr";
 import { useState, useEffect, useRef } from "react";
 import * as THREE from "three";
-import { Text } from "@react-three/drei";
+import { Text, useGLTF } from "@react-three/drei"; // added useGLTF
 
 const store = createXRStore();
 
-function RotatingCube({ position, color }) {
-  const meshRef = useRef();
-
-  useFrame(() => {
-    if (meshRef.current) {
-      meshRef.current.rotation.x += 0.01;
-      meshRef.current.rotation.y += 0.01;
-    }
-  });
-
+// New Model component
+function Model({ url, position, rotation = [0, 0, 0], scale = 1 }) {
+  const { scene } = useGLTF(url);
   return (
-    <mesh ref={meshRef} position={position}>
-      <boxGeometry args={[0.5, 0.5, 0.5]} />
-      <meshStandardMaterial color={color} />
-    </mesh>
+    <primitive
+      object={scene}
+      position={position}
+      rotation={rotation}
+      scale={scale}
+    />
   );
 }
 
@@ -122,7 +117,12 @@ export function App() {
         <XR store={store}>
           <ambientLight intensity={0.5} />
           <pointLight position={[0, 2, 2]} />
-
+          <directionalLight
+            color='#ffffff'
+            intensity={0.7}
+            position={[3, 5, 4]}
+          />
+          {/* added directional light */}
           {/* Video Plane */}
           <mesh
             position={[0, 1, -2]}
@@ -138,7 +138,6 @@ export function App() {
               />
             )}
           </mesh>
-
           {/* AR Text */}
           <Text
             position={[0.8, 1, -2]} // repositioned closer to the video
@@ -148,10 +147,17 @@ export function App() {
             anchorY='middle'>
             See your special&#10;chef cooking your&#10;amazing dish
           </Text>
-
-          {/* Rotating Cubes Below */}
-          <RotatingCube position={[-0.6, 0.2, -2]} color='red' />
-          <RotatingCube position={[0.6, 0.2, -2]} color='blue' />
+          {/* GLB Models */}
+          <Model
+            url='/public/chicken_wings.glb'
+            position={[-0.6, 0.2, -2]}
+            scale={0.5} // adjust as needed
+          />
+          <Model
+            url='/public/momos.glb'
+            position={[0.6, 0.2, -2]}
+            scale={0.5} // adjust as needed
+          />
         </XR>
       </Canvas>
     </>
