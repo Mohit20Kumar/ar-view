@@ -1,26 +1,46 @@
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { XR, createXRStore } from "@react-three/xr";
 import { useState, useEffect, useRef } from "react";
 import * as THREE from "three";
 
 const store = createXRStore();
 
+function RotatingCube({ position, color }) {
+  const meshRef = useRef();
+
+  useFrame(() => {
+    if (meshRef.current) {
+      meshRef.current.rotation.x += 0.01;
+      meshRef.current.rotation.y += 0.01;
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} position={position}>
+      <boxGeometry args={[0.5, 0.5, 0.5]} />
+      <meshStandardMaterial color={color} />
+    </mesh>
+  );
+}
+
 export function App() {
   const [videoTexture, setVideoTexture] = useState(null);
   const videoRef = useRef(null);
   const [videoReady, setVideoReady] = useState(false);
-  const [videoScale, setVideoScale] = useState(1); // state for scale
-  const initialPinchDistance = useRef(null); // New ref for pinch distance
-  const initialVideoScale = useRef(1); // New ref for initial video scale
+  const [videoScale, setVideoScale] = useState(1);
+  const initialPinchDistance = useRef(null);
+  const initialVideoScale = useRef(1);
 
   useEffect(() => {
     const video = document.createElement("video");
     videoRef.current = video;
-    video.src =
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-    video.crossOrigin = "anonymous";
+    // video.src =
+    //   "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+    video.src = "/public/hehe.mp4";
+
+    // video.crossOrigin = "anonymous";
     video.loop = true;
-    video.muted = false; // Start muted to allow autoplay
+    video.muted = false;
     video.playsInline = true;
 
     video.addEventListener("loadeddata", () => {
@@ -28,7 +48,6 @@ export function App() {
       texture.encoding = THREE.sRGBEncoding;
       setVideoTexture(texture);
       setVideoReady(true);
-      // Try to play only after user interaction
       video.play().catch(console.error);
     });
 
@@ -82,7 +101,6 @@ export function App() {
     <>
       <button onClick={() => store.enterAR()}>Enter AR</button>
       <button onClick={playVideo}>Play Video</button>
-      {/* Existing slider remains for manual control */}
       <div>
         <label>Scale: {videoScale}</label>
         <input
@@ -101,10 +119,13 @@ export function App() {
           });
         }}>
         <XR store={store}>
+          <ambientLight intensity={0.5} />
+          <pointLight position={[0, 2, 2]} />
+
+          {/* Video Plane */}
           <mesh
             position={[0, 1, -2]}
             rotation={[0, 0, 0]}
-            // Base scale multiplied by videoScale
             scale={[1.77 * videoScale, 1 * videoScale, 1 * videoScale]}
             onClick={playVideo}>
             <planeGeometry />
@@ -116,6 +137,10 @@ export function App() {
               />
             )}
           </mesh>
+
+          {/* Rotating Cubes Below */}
+          <RotatingCube position={[-0.6, 0.2, -2]} color='red' />
+          <RotatingCube position={[0.6, 0.2, -2]} color='blue' />
         </XR>
       </Canvas>
     </>
