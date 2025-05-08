@@ -2,6 +2,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { XR, createXRStore } from "@react-three/xr";
 import { useState, useEffect, useRef } from "react";
 import * as THREE from "three";
+import { Text } from "@react-three/drei";
 
 const store = createXRStore();
 
@@ -126,7 +127,7 @@ export function App() {
           <mesh
             position={[0, 1, -2]}
             rotation={[0, 0, 0]}
-            scale={[1.77 * videoScale, 1 * videoScale, 1 * videoScale]}
+            scale={[1 * videoScale, 1.77 * videoScale, 1 * videoScale]} // changed to portrait mode ratio
             onClick={playVideo}>
             <planeGeometry />
             {videoTexture && (
@@ -137,6 +138,16 @@ export function App() {
               />
             )}
           </mesh>
+
+          {/* AR Text */}
+          <Text
+            position={[0.8, 1, -2]} // repositioned closer to the video
+            fontSize={0.2}
+            color='white'
+            anchorX='left'
+            anchorY='middle'>
+            See your special&#10;chef cooking your&#10;amazing dish
+          </Text>
 
           {/* Rotating Cubes Below */}
           <RotatingCube position={[-0.6, 0.2, -2]} color='red' />
