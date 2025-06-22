@@ -30,8 +30,6 @@ export function App() {
   useEffect(() => {
     const video = document.createElement("video");
     videoRef.current = video;
-    // video.src =
-    //   "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
     video.src = "/public/hehe.mp4";
 
     // video.crossOrigin = "anonymous";
@@ -147,17 +145,6 @@ export function App() {
             anchorY='middle'>
             See your special&#10;chef cooking your&#10;amazing dish
           </Text>
-          {/* GLB Models */}
-          <Model
-            url='/public/chicken_wings.glb'
-            position={[-0.6, 0.2, -2]}
-            scale={0.5} // adjust as needed
-          />
-          <Model
-            url='/public/momos.glb'
-            position={[0.6, 0.2, -2]}
-            scale={0.5} // adjust as needed
-          />
         </XR>
       </Canvas>
     </>
