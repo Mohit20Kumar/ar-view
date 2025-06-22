@@ -1,154 +1,173 @@
-import { Canvas, useFrame } from "@react-three/fiber";
-import { XR, createXRStore } from "@react-three/xr";
-import { useState, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import * as THREE from "three";
-import { Text, useGLTF } from "@react-three/drei"; // added useGLTF
 
-const store = createXRStore();
-
-// New Model component
-function Model({ url, position, rotation = [0, 0, 0], scale = 1 }) {
-  const { scene } = useGLTF(url);
-  return (
-    <primitive
-      object={scene}
-      position={position}
-      rotation={rotation}
-      scale={scale}
-    />
-  );
-}
-
-export function App() {
-  const [videoTexture, setVideoTexture] = useState(null);
-  const videoRef = useRef(null);
-  const [videoReady, setVideoReady] = useState(false);
-  const [videoScale, setVideoScale] = useState(1);
-  const initialPinchDistance = useRef(null);
-  const initialVideoScale = useRef(1);
-
+export default function App() {
   useEffect(() => {
-    const video = document.createElement("video");
-    videoRef.current = video;
-    video.src = "/public/hehe.mp4";
+    let renderer, scene, camera, reelPlane, videoTexture;
+    let raycaster = new THREE.Raycaster();
+    let touch = new THREE.Vector2();
+    let canvas, xrSession, video;
+    let startBtn;
 
-    // video.crossOrigin = "anonymous";
-    video.loop = true;
-    video.muted = false;
-    video.playsInline = true;
-
-    video.addEventListener("loadeddata", () => {
-      const texture = new THREE.VideoTexture(video);
-      texture.encoding = THREE.sRGBEncoding;
-      setVideoTexture(texture);
-      setVideoReady(true);
-      video.play().catch(console.error);
-    });
-
-    return () => {
-      video.remove();
-      if (videoTexture) videoTexture.dispose();
+    const createStartButton = () => {
+      startBtn = document.createElement("button");
+      startBtn.innerText = "Start AR";
+      startBtn.style.position = "absolute";
+      startBtn.style.top = "20px";
+      startBtn.style.left = "20px";
+      startBtn.style.padding = "10px 20px";
+      startBtn.style.fontSize = "18px";
+      startBtn.style.background = "rgba(255,255,255,0.9)";
+      startBtn.style.border = "none";
+      startBtn.style.borderRadius = "8px";
+      startBtn.style.zIndex = 1000;
+      startBtn.onclick = startAR;
+      document.body.appendChild(startBtn);
     };
+
+    const startAR = async () => {
+      if (!navigator.xr) {
+        alert("WebXR not supported");
+        return;
+      }
+
+      startBtn.remove();
+
+      xrSession = await navigator.xr.requestSession("immersive-ar", {
+        requiredFeatures: ["local", "dom-overlay"],
+        domOverlay: { root: document.body },
+      });
+
+      canvas = document.createElement("canvas");
+      canvas.style.position = "fixed";
+      canvas.style.top = "0";
+      canvas.style.left = "0";
+      document.body.appendChild(canvas);
+
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+        antialias: true,
+      });
+      renderer.xr.enabled = true;
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera();
+
+      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+      scene.add(light);
+
+      // 🎥 Video setup
+      video = document.createElement("video");
+      video.src = "/hehe.mp4";
+      video.crossOrigin = "anonymous";
+      video.loop = true;
+      video.muted = false;
+      video.controls = false;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "true");
+
+      videoTexture = new THREE.VideoTexture(video);
+      videoTexture.minFilter = THREE.LinearFilter;
+      videoTexture.magFilter = THREE.LinearFilter;
+      videoTexture.format = THREE.RGBFormat;
+
+      const geometry = new THREE.PlaneGeometry(0.45, 0.8); // 9:16
+      const material = new THREE.MeshBasicMaterial({
+        map: videoTexture,
+        side: THREE.DoubleSide,
+      });
+      reelPlane = new THREE.Mesh(geometry, material);
+      reelPlane.position.set(0, 0, -0.8);
+      reelPlane.scale.set(1, 1, 1); // default scale
+      scene.add(reelPlane);
+
+      // 👆 Tap to play video
+      canvas.addEventListener("click", async (e) => {
+        touch.x = (e.clientX / window.innerWidth) * 2 - 1;
+        touch.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(touch, camera);
+        const intersects = raycaster.intersectObjects([reelPlane]);
+
+        if (intersects.length > 0) {
+          try {
+            await video.play();
+            console.log("Video playing");
+          } catch (err) {
+            console.warn("Play failed:", err);
+          }
+        }
+      });
+
+      // ✌️ Pinch-to-scale logic
+      let initialPinchDistance = null;
+      let initialScale = 1;
+
+      canvas.addEventListener("touchstart", (e) => {
+        if (e.touches.length === 2) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          initialPinchDistance = Math.hypot(dx, dy);
+          initialScale = reelPlane.scale.x;
+        }
+      });
+
+      canvas.addEventListener("touchmove", (e) => {
+        if (e.touches.length === 2 && initialPinchDistance !== null) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          const currentDistance = Math.hypot(dx, dy);
+          const scaleFactor = currentDistance / initialPinchDistance;
+          const newScale = Math.max(
+            0.3,
+            Math.min(3, initialScale * scaleFactor)
+          );
+          reelPlane.scale.set(newScale, newScale, newScale);
+        }
+      });
+
+      canvas.addEventListener("touchend", (e) => {
+        if (e.touches.length < 2) {
+          initialPinchDistance = null;
+        }
+      });
+
+      renderer.xr.setReferenceSpaceType("local");
+      renderer.xr.setSession(xrSession);
+
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+      });
+
+      // ❌ Exit AR
+      const exitBtn = document.createElement("button");
+      exitBtn.innerText = "Exit AR";
+      exitBtn.style.position = "absolute";
+      exitBtn.style.bottom = "20px";
+      exitBtn.style.left = "20px";
+      exitBtn.style.padding = "10px 20px";
+      exitBtn.style.fontSize = "18px";
+      exitBtn.style.background = "rgba(255,255,255,0.9)";
+      exitBtn.style.border = "none";
+      exitBtn.style.borderRadius = "8px";
+      exitBtn.style.zIndex = 1000;
+      exitBtn.onclick = async () => {
+        await xrSession.end();
+        video.pause();
+        renderer.setAnimationLoop(null);
+        canvas.remove();
+        exitBtn.remove();
+        createStartButton();
+      };
+      document.body.appendChild(exitBtn);
+    };
+
+    // 🟢 Initial button
+    createStartButton();
   }, []);
 
-  useEffect(() => {
-    function onTouchStart(e) {
-      if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        initialPinchDistance.current = Math.sqrt(dx * dx + dy * dy);
-        initialVideoScale.current = videoScale;
-      }
-    }
-    function onTouchMove(e) {
-      if (e.touches.length === 2 && initialPinchDistance.current) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const newDistance = Math.sqrt(dx * dx + dy * dy);
-        const scaleFactor = newDistance / initialPinchDistance.current;
-        setVideoScale(initialVideoScale.current * scaleFactor);
-      }
-    }
-    function onTouchEnd(e) {
-      if (e.touches.length < 2) {
-        initialPinchDistance.current = null;
-        initialVideoScale.current = videoScale;
-      }
-    }
-    document.addEventListener("touchstart", onTouchStart);
-    document.addEventListener("touchmove", onTouchMove);
-    document.addEventListener("touchend", onTouchEnd);
-    return () => {
-      document.removeEventListener("touchstart", onTouchStart);
-      document.removeEventListener("touchmove", onTouchMove);
-      document.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [videoScale]);
-
-  const playVideo = () => {
-    if (videoRef.current && videoReady) {
-      videoRef.current.play().catch(console.error);
-    }
-  };
-
-  return (
-    <>
-      <button onClick={() => store.enterAR()}>Enter AR</button>
-      <button onClick={playVideo}>Play Video</button>
-      <div>
-        <label>Scale: {videoScale}</label>
-        <input
-          type='range'
-          min='0.5'
-          max='3'
-          step='0.1'
-          value={videoScale}
-          onChange={(e) => setVideoScale(parseFloat(e.target.value))}
-        />
-      </div>
-      <Canvas
-        onCreated={({ gl }) => {
-          gl.xr.addEventListener("sessionend", () => {
-            if (videoRef.current) videoRef.current.pause();
-          });
-        }}>
-        <XR store={store}>
-          <ambientLight intensity={0.5} />
-          <pointLight position={[0, 2, 2]} />
-          <directionalLight
-            color='#ffffff'
-            intensity={0.7}
-            position={[3, 5, 4]}
-          />
-          {/* added directional light */}
-          {/* Video Plane */}
-          <mesh
-            position={[0, 1, -2]}
-            rotation={[0, 0, 0]}
-            scale={[1 * videoScale, 1.77 * videoScale, 1 * videoScale]} // changed to portrait mode ratio
-            onClick={playVideo}>
-            <planeGeometry />
-            {videoTexture && (
-              <meshBasicMaterial
-                map={videoTexture}
-                side={THREE.DoubleSide}
-                toneMapped={false}
-              />
-            )}
-          </mesh>
-          {/* AR Text */}
-          <Text
-            position={[0.8, 1, -2]} // repositioned closer to the video
-            fontSize={0.2}
-            color='white'
-            anchorX='left'
-            anchorY='middle'>
-            See your special&#10;chef cooking your&#10;amazing dish
-          </Text>
-        </XR>
-      </Canvas>
-    </>
-  );
+  return null;
 }
-
-export default App;
