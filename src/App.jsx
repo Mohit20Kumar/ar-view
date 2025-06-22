@@ -84,7 +84,42 @@ export default function App() {
       reelPlane.scale.set(1, 1, 1);
       scene.add(reelPlane);
 
-      // 👆 Tap to play
+      // 🎯 Play/Pause icon sprite setup
+      const playIconUrl = "/play.png";
+      const pauseIconUrl = "/pause.png";
+
+      const iconLoader = new THREE.TextureLoader();
+      const playTexture = await iconLoader.loadAsync(playIconUrl);
+      const pauseTexture = await iconLoader.loadAsync(pauseIconUrl);
+
+      const iconMaterial = new THREE.SpriteMaterial({
+        map: playTexture,
+        transparent: true,
+      });
+
+      const videoIcon = new THREE.Sprite(iconMaterial);
+      videoIcon.scale.set(0.15, 0.15, 1);
+      videoIcon.position
+        .copy(reelPlane.position)
+        .add(new THREE.Vector3(0, 0, 0.01));
+      scene.add(videoIcon);
+
+      // 🔁 Auto-hide icon after play
+      let hideTimeout;
+      video.addEventListener("play", () => {
+        clearTimeout(hideTimeout);
+        hideTimeout = setTimeout(() => {
+          videoIcon.visible = false;
+        }, 2000);
+      });
+
+      video.addEventListener("pause", () => {
+        videoIcon.visible = true;
+        videoIcon.material.map = playTexture;
+        videoIcon.material.needsUpdate = true;
+      });
+
+      // 👆 Tap to play/pause
       canvas.addEventListener("click", async (e) => {
         touch.x = (e.clientX / window.innerWidth) * 2 - 1;
         touch.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -93,10 +128,19 @@ export default function App() {
         const intersects = raycaster.intersectObjects([reelPlane]);
 
         if (intersects.length > 0) {
-          try {
-            await video.play();
-          } catch (err) {
-            console.warn("Play failed:", err);
+          if (video.paused) {
+            try {
+              await video.play();
+              videoIcon.material.map = pauseTexture;
+              videoIcon.material.needsUpdate = true;
+            } catch (err) {
+              console.warn("Play failed:", err);
+            }
+          } else {
+            video.pause();
+            videoIcon.material.map = playTexture;
+            videoIcon.material.needsUpdate = true;
+            videoIcon.visible = true;
           }
         }
       });
@@ -168,6 +212,9 @@ export default function App() {
           raycaster.ray.intersectPlane(planeZ, intersection);
           if (intersection) {
             reelPlane.position.copy(intersection.sub(dragOffset));
+            videoIcon.position
+              .copy(reelPlane.position)
+              .add(new THREE.Vector3(0, 0, 0.01)); // Update icon too
           }
         }
       });
@@ -178,7 +225,6 @@ export default function App() {
         }
       });
 
-      // AR renderer
       renderer.xr.setReferenceSpaceType("local");
       renderer.xr.setSession(xrSession);
       renderer.setAnimationLoop(() => {
@@ -208,7 +254,6 @@ export default function App() {
       document.body.appendChild(exitBtn);
     };
 
-    // 🟢 Initial Start button
     createStartButton();
   }, []);
 
