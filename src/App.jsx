@@ -59,7 +59,7 @@ export default function App() {
       const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
       scene.add(light);
 
-      // 🎥 Video setup
+      // 🎥 Setup video
       video = document.createElement("video");
       video.src = "/hehe.mp4";
       video.crossOrigin = "anonymous";
@@ -81,10 +81,10 @@ export default function App() {
       });
       reelPlane = new THREE.Mesh(geometry, material);
       reelPlane.position.set(0, 0, -0.8);
-      reelPlane.scale.set(1, 1, 1); // default scale
+      reelPlane.scale.set(1, 1, 1);
       scene.add(reelPlane);
 
-      // 👆 Tap to play video
+      // 👆 Tap to play
       canvas.addEventListener("click", async (e) => {
         touch.x = (e.clientX / window.innerWidth) * 2 - 1;
         touch.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -95,14 +95,13 @@ export default function App() {
         if (intersects.length > 0) {
           try {
             await video.play();
-            console.log("Video playing");
           } catch (err) {
             console.warn("Play failed:", err);
           }
         }
       });
 
-      // ✌️ Pinch-to-scale logic
+      // ✌️ Pinch-to-scale
       let initialPinchDistance = null;
       let initialScale = 1;
 
@@ -135,9 +134,53 @@ export default function App() {
         }
       });
 
+      // ✋ Drag to move
+      let isDragging = false;
+      let dragOffset = new THREE.Vector3();
+
+      canvas.addEventListener("touchstart", (e) => {
+        if (e.touches.length === 1) {
+          const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+          const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+          touch.set(x, y);
+
+          raycaster.setFromCamera(touch, camera);
+          const intersects = raycaster.intersectObject(reelPlane);
+
+          if (intersects.length > 0) {
+            isDragging = true;
+            const intersect = intersects[0];
+            dragOffset.copy(intersect.point).sub(reelPlane.position);
+          }
+        }
+      });
+
+      canvas.addEventListener("touchmove", (e) => {
+        if (isDragging && e.touches.length === 1) {
+          const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+          const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+          touch.set(x, y);
+
+          raycaster.setFromCamera(touch, camera);
+          const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0.8);
+          const intersection = new THREE.Vector3();
+
+          raycaster.ray.intersectPlane(planeZ, intersection);
+          if (intersection) {
+            reelPlane.position.copy(intersection.sub(dragOffset));
+          }
+        }
+      });
+
+      canvas.addEventListener("touchend", (e) => {
+        if (e.touches.length === 0) {
+          isDragging = false;
+        }
+      });
+
+      // AR renderer
       renderer.xr.setReferenceSpaceType("local");
       renderer.xr.setSession(xrSession);
-
       renderer.setAnimationLoop(() => {
         renderer.render(scene, camera);
       });
@@ -165,7 +208,7 @@ export default function App() {
       document.body.appendChild(exitBtn);
     };
 
-    // 🟢 Initial button
+    // 🟢 Initial Start button
     createStartButton();
   }, []);
 
