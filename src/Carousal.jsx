@@ -169,7 +169,15 @@ export default function ModelViewerCarousel() {
         camera-controls
         touch-action='pan-y'
         ar
-        ar-modes='webxr'
+        ar-placement='floor'
+        ar-modes='webxr scene-viewer quick-look'
+        ar-scale='auto'
+        scale='1 1 1'
+        interaction-prompt='none'
+        environment-image='neutral'
+        exposure='1'
+        shadow-softness='0.25'
+        tone-mapping='neutral'
         alt='A 3D model carousel'
         style={{
           width: "100%",
