@@ -4,7 +4,7 @@ import ModelViewerCarousel from "./Carousal";
 export default function App() {
   return (
     <>
-      <ARVideo />
+      {/* <ARVideo /> */}
       <ModelViewerCarousel />
     </>
   );
