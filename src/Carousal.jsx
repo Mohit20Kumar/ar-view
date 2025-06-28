@@ -1,0 +1,197 @@
+// src/components/ModelViewerCarousel.jsx
+import React, { useRef, useEffect } from "react";
+// import "@google/model-viewer";
+
+const models = [
+  { name: "Momos", file: "momos", thumb: "momos.jpg" },
+  { name: "Pasta", file: "pasta", thumb: "pasta.jpg" },
+  { name: "Soup", file: "soup", thumb: "soup.jpg" },
+  { name: "Fish Dish", file: "fish_dish", thumb: "fish_dish.jpg" },
+  {
+    name: "Chicken Fried Rice",
+    file: "chicken_fried_rice",
+    thumb: "chicken_fried_rice.jpg",
+  },
+  {
+    name: "Chicken Meatball",
+    file: "chicken_meatball",
+    thumb: "chicken_meatball.jpg",
+  },
+  { name: "Chicken Wings", file: "chicken_wings", thumb: "chicken_wings.jpg" },
+  {
+    name: "Fish Slice Dish",
+    file: "fish_slice_dish",
+    thumb: "fish_slice_dish.jpg",
+  },
+];
+
+export default function ModelViewerCarousel() {
+  const modelRef = useRef(null);
+  const selectedRef = useRef("momos");
+  const sliderRef = useRef(null);
+
+  const switchModel = (name) => {
+    const base = `/${name}`;
+    if (modelRef.current) {
+      modelRef.current.src = `${base}.glb`;
+      modelRef.current.poster = `${base}.jpg`;
+      selectedRef.current = name;
+    }
+  };
+
+  useEffect(() => {
+    if (sliderRef.current) {
+      sliderRef.current.addEventListener("beforexrselect", (ev) => {
+        // Keep slider interactions from affecting the XR scene.
+        ev.preventDefault();
+      });
+    }
+  }, []);
+
+  const handleSliderInteraction = (e) => {
+    e.stopPropagation();
+    // Temporarily disable camera controls during slider interaction
+    if (modelRef.current) {
+      modelRef.current.cameraControls = false;
+      setTimeout(() => {
+        if (modelRef.current) {
+          modelRef.current.cameraControls = true;
+        }
+      }, 300);
+    }
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <model-viewer
+        ref={modelRef}
+        src='/momos.glb'
+        poster='/momos.webp'
+        shadow-intensity='1'
+        camera-controls
+        touch-action='pan-y'
+        ar
+        ar-modes='webxr'
+        alt='A 3D model carousel'
+        style={{ width: "100%", height: "500px", backgroundColor: "#eee" }}>
+        <button slot='ar-button' id='ar-button'>
+          View in your space
+        </button>
+
+        <button id='ar-failure'>AR is not tracking!</button>
+
+        <div className='slider' ref={sliderRef}>
+          <div className='slides'>
+            {models.map((model) => (
+              <button
+                key={model.file}
+                className={`slide ${
+                  selectedRef.current === model.file ? "selected" : ""
+                }`}
+                onClick={() => switchModel(model.file)}
+                style={{
+                  backgroundImage: `url(/${model.thumb})`,
+                }}></button>
+            ))}
+          </div>
+        </div>
+      </model-viewer>
+
+      <style>{`
+        model-viewer > #ar-prompt {
+          position: absolute;
+          left: 50%;
+          bottom: 175px;
+          animation: elongate 2s infinite ease-in-out alternate;
+          display: none;
+        }
+        model-viewer[ar-status="session-started"] > #ar-prompt {
+          display: block;
+        }
+        model-viewer > #ar-prompt > img {
+          animation: circle 4s linear infinite;
+        }
+        model-viewer > #ar-failure {
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          bottom: 175px;
+          display: none;
+        }
+        model-viewer[ar-tracking="not-tracking"] > #ar-failure {
+          display: block;
+        }
+
+        .slider {
+          width: 100%;
+          text-align: center;
+          overflow: hidden;
+          position: absolute;
+          bottom: 16px;
+          z-index: 999;
+          pointer-events: auto;
+        }
+
+        .slides {
+          display: flex;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .slide {
+          scroll-snap-align: start;
+          flex-shrink: 0;
+          width: 100px;
+          height: 100px;
+          background-size: contain;
+          background-repeat: no-repeat;
+          background-position: center;
+          background-color: #fff;
+          margin-right: 10px;
+          border-radius: 10px;
+          border: none;
+          display: flex;
+        }
+
+        .slide.selected {
+          border: 2px solid #4285f4;
+        }
+
+        @keyframes circle {
+          from { transform: translateX(-50%) rotate(0deg) translateX(50px) rotate(0deg); }
+          to   { transform: translateX(-50%) rotate(360deg) translateX(50px) rotate(-360deg); }
+        }
+
+        @keyframes elongate {
+          from { transform: translateX(100px); }
+          to   { transform: translateX(-100px); }
+        }
+
+        #ar-button {
+          background-image: url(../../assets/ic_view_in_ar_new_googblue_48dp.png);
+          background-repeat: no-repeat;
+          background-size: 20px 20px;
+          background-position: 12px 50%;
+          background-color: #fff;
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          white-space: nowrap;
+          bottom: 132px;
+          padding: 0px 16px 0px 40px;
+          font-family: Roboto, sans-serif;
+          font-size: 14px;
+          color: #4285f4;
+          height: 36px;
+          line-height: 36px;
+          border-radius: 18px;
+          border: 1px solid #DADCE0;
+        }
+        #ar-button:active { background-color: #E8EAED; }
+        #ar-button:focus-visible { outline: 1px solid #4285f4; }
+      `}</style>
+    </div>
+  );
+}
