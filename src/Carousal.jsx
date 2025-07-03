@@ -69,6 +69,22 @@ const models = [
     description: "Fresh fish slices with ginger, scallions and soy sauce",
     category: "main",
   },
+  {
+    name: "Chicken Drumstick",
+    file: "Chicken_Drumstick",
+    thumb: "chicken_wings.jpg",
+    price: "₹379",
+    description: "Perfectly grilled chicken drumsticks with smoky BBQ flavor",
+    category: "main",
+  },
+  {
+    name: "Omlette Rice",
+    file: "Omlette_rice",
+    thumb: "chicken_fried_rice.jpg",
+    price: "₹279",
+    description: "Fluffy omelette served over seasoned fried rice",
+    category: "main",
+  },
 ];
 
 const categories = [
