@@ -1,6 +1,4 @@
-// src/components/ModelViewerCarousel.jsx
 import React, { useRef, useEffect, useState } from "react";
-// import "@google/model-viewer";
 
 const models = [
   {
@@ -95,225 +93,167 @@ const categories = [
 
 export default function ModelViewerCarousel() {
   const modelRef = useRef(null);
-  const [selectedModel, setSelectedModel] = useState("momos");
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("all");
   const sliderRef = useRef(null);
+  const [selectedModel, setSelectedModel] = useState("momos");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [devicePixelRatio] = useState(window.devicePixelRatio || 1);
 
-  const getCurrentModel = () => {
-    return models.find((model) => model.file === selectedModel) || models[0];
-  };
+  const getCurrentModel = () =>
+    models.find((model) => model.file === selectedModel) || models[0];
 
-  const getFilteredModels = () => {
-    if (selectedCategory === "all") return models;
-    return models.filter((model) => model.category === selectedCategory);
-  };
+  const getFilteredModels = () =>
+    selectedCategory === "all"
+      ? models
+      : models.filter((model) => model.category === selectedCategory);
 
-  const switchModel = (name) => {
-    // Only switch if it's a different model
-    if (name !== selectedModel) {
+  const switchModel = (file) => {
+    if (file !== selectedModel) {
       setIsLoading(true);
-      const base = `/${name}`;
+      setSelectedModel(file);
       if (modelRef.current) {
-        modelRef.current.src = `${base}.glb`;
-        modelRef.current.poster = `${base}.jpg`;
-        setSelectedModel(name);
+        modelRef.current.src = `/${file}.glb`;
+        modelRef.current.poster = `/${file}.jpg`;
       }
     }
   };
 
-  const handleCategoryChange = (categoryId) => {
-    setSelectedCategory(categoryId);
-    const filteredModels =
-      categoryId === "all"
-        ? models
-        : models.filter((model) => model.category === categoryId);
-    if (filteredModels.length > 0) {
-      // Only switch model if it's different from the currently selected one
-      const firstModel = filteredModels[0].file;
-      if (firstModel !== selectedModel) {
-        switchModel(firstModel);
-      }
+  const handleCategoryChange = (id) => {
+    setSelectedCategory(id);
+    const filtered = getFilteredModels();
+    if (filtered.length > 0 && filtered[0].file !== selectedModel) {
+      switchModel(filtered[0].file);
     }
   };
 
   const handleAddToCart = () => {
-    // Do nothing for now
+    alert(`Added ${getCurrentModel().name} to cart!`);
   };
 
+  // 🔒 Prevent model movement when sliding
   useEffect(() => {
     if (sliderRef.current) {
       sliderRef.current.addEventListener("beforexrselect", (ev) => {
-        // Keep slider interactions from affecting the XR scene.
-        ev.preventDefault();
+        ev.preventDefault(); // ✅ Stops interaction passing to AR model
       });
     }
+  }, []);
 
-    // Add model load event listener
+  useEffect(() => {
     if (modelRef.current) {
-      const handleLoad = () => setIsLoading(false);
+      const handleLoad = () => {
+        setIsLoading(false);
+        if (devicePixelRatio > 1) {
+          modelRef.current.setAttribute(
+            "render-scale",
+            devicePixelRatio.toString()
+          );
+        }
+      };
+
+      const handleError = (error) => {
+        console.error("Model loading error:", error);
+        setIsLoading(false);
+      };
+
       modelRef.current.addEventListener("load", handleLoad);
+      modelRef.current.addEventListener("error", handleError);
 
       return () => {
         if (modelRef.current) {
           modelRef.current.removeEventListener("load", handleLoad);
+          modelRef.current.removeEventListener("error", handleError);
         }
       };
     }
-  }, []);
-
-  const handleSliderInteraction = (e) => {
-    e.stopPropagation();
-    // Temporarily disable camera controls during slider interaction
-    if (modelRef.current) {
-      modelRef.current.cameraControls = false;
-      setTimeout(() => {
-        if (modelRef.current) {
-          modelRef.current.cameraControls = true;
-        }
-      }, 300);
-    }
-  };
+  }, [selectedModel, devicePixelRatio]);
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative", background: "#f9f9f9" }}>
       <model-viewer
         ref={modelRef}
         src='/momos.glb'
-        poster='/momos.webp'
+        poster='/momos.jpg'
         shadow-intensity='1'
         camera-controls
-        touch-action='pan-y'
         ar
         ar-placement='floor'
         ar-modes='webxr scene-viewer quick-look'
         ar-scale='auto'
-        scale='1 1 1'
-        interaction-prompt='none'
+        auto-rotate
+        auto-rotate-delay='5000'
         environment-image='neutral'
         exposure='1'
-        shadow-softness='0.25'
+        shadow-softness='0.4'
         tone-mapping='neutral'
-        alt='A 3D model carousel'
         style={{
           width: "100%",
-          height: "500px",
-          backgroundColor: "#eee",
+          height: "90vh",
+          // backgroundColor: "#f2f2f2",
+          // borderBottom: "1px solid #ccc",
         }}>
         <button slot='ar-button' id='ar-button'>
-          View in your space
+          View in AR
         </button>
-
-        <button id='ar-failure'>AR is not tracking!</button>
 
         {isLoading && (
           <div className='loading-overlay'>
-            <div className='loading-spinner'></div>
-            <p className='loading-text'>Loading model...</p>
+            <div className='loading-spinner' />
+            <p className='loading-text'>Loading...</p>
           </div>
         )}
 
-        <div className='dish-info'>
-          <h3 className='dish-name'>{getCurrentModel().name}</h3>
-          <p className='dish-price'>{getCurrentModel().price}</p>
-          <p className='dish-description'>{getCurrentModel().description}</p>
-          <button className='add-to-cart-btn' onClick={handleAddToCart}>
+        <div className='info-card'>
+          <h3>{getCurrentModel().name}</h3>
+          <p className='price'>{getCurrentModel().price}</p>
+          <p className='desc'>{getCurrentModel().description}</p>
+          <button className='cart-btn' onClick={handleAddToCart}>
             Add to Cart
           </button>
         </div>
 
-        <div className='category-filter'>
-          {categories.map((category) => (
+        <div className='category-menu'>
+          {categories.map((cat) => (
             <button
-              key={category.id}
-              className={`category-btn ${
-                selectedCategory === category.id ? "active" : ""
-              }`}
-              onClick={() => handleCategoryChange(category.id)}>
-              {category.name}
+              key={cat.id}
+              onClick={() => handleCategoryChange(cat.id)}
+              className={`cat-btn ${
+                selectedCategory === cat.id ? "active" : ""
+              }`}>
+              {cat.name}
             </button>
           ))}
         </div>
 
-        <div className='slider' ref={sliderRef}>
-          <div className='slides'>
-            {getFilteredModels().map((model) => (
-              <button
-                key={model.file}
-                className={`slide ${
-                  selectedModel === model.file ? "selected" : ""
-                }`}
-                onClick={() => switchModel(model.file)}
-                style={{
-                  backgroundImage: `url(/${model.thumb})`,
-                }}></button>
-            ))}
-          </div>
+        <div className='carousel' ref={sliderRef}>
+          {getFilteredModels().map((model) => (
+            <button
+              key={model.file}
+              onClick={() => switchModel(model.file)}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              className={`thumb ${
+                selectedModel === model.file ? "active" : ""
+              }`}
+              style={{ backgroundImage: `url(/${model.thumb})` }}
+            />
+          ))}
         </div>
       </model-viewer>
 
       <style>{`
-        model-viewer > #ar-prompt {
+        #ar-button {
+          background: #fff;
+          color: #4285f4;
+          border: 1px solid #ccc;
+          padding: 8px 16px;
+          border-radius: 20px;
+          font-size: 14px;
           position: absolute;
           left: 50%;
-          bottom: 175px;
-          animation: elongate 2s infinite ease-in-out alternate;
-          display: none;
-        }
-        model-viewer[ar-status="session-started"] > #ar-prompt {
-          display: block;
-        }
-        model-viewer > #ar-prompt > img {
-          animation: circle 4s linear infinite;
-        }
-        model-viewer > #ar-failure {
-          position: absolute;
-          left: 50%;
+          bottom: 132px;
           transform: translateX(-50%);
-          bottom: 175px;
-          display: none;
-        }
-        model-viewer[ar-tracking="not-tracking"] > #ar-failure {
-          display: block;
-        }
-
-        .slider {
-          width: 100%;
-          text-align: center;
-          overflow: hidden;
-          position: absolute;
-          bottom: 16px;
-          z-index: 999;
-          pointer-events: auto;
-        }
-
-        .slides {
-          display: flex;
-          overflow-x: auto;
-          scroll-snap-type: x mandatory;
-          scroll-behavior: smooth;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .slide {
-          scroll-snap-align: start;
-          flex-shrink: 0;
-          width: 80px;
-          height: 80px;
-          background-size: cover;
-          background-repeat: no-repeat;
-          background-position: center;
-          background-color: #fff;
-          margin-right: 15px;
-          border-radius: 50%;
-          border: 3px solid #fff;
-          display: flex;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .slide.selected {
-          border: 3px solid #4285f4;
-          transition: all 0.2s ease;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
         .loading-overlay {
@@ -321,92 +261,75 @@ export default function ModelViewerCarousel() {
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          background: rgba(255, 255, 255, 0.9);
+          background: rgba(255, 255, 255, 0.95);
           padding: 20px;
-          border-radius: 10px;
+          border-radius: 12px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          backdrop-filter: blur(10px);
-          z-index: 1000;
+          z-index: 999;
         }
 
         .loading-spinner {
-          width: 40px;
-          height: 40px;
-          border: 4px solid #f3f3f3;
+          width: 36px;
+          height: 36px;
+          border: 4px solid #eee;
           border-top: 4px solid #4285f4;
           border-radius: 50%;
           animation: spin 1s linear infinite;
-          margin-bottom: 10px;
         }
 
         .loading-text {
-          margin: 0;
-          font-family: Roboto, sans-serif;
+          margin-top: 10px;
           font-size: 14px;
-          color: #333;
+          color: #444;
         }
 
         @keyframes spin {
-          0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
 
-        .dish-info {
+        .info-card {
           position: absolute;
           top: 20px;
           left: 20px;
-          background: rgba(255, 255, 255, 0.9);
-          padding: 15px;
-          border-radius: 10px;
-          max-width: 250px;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-          backdrop-filter: blur(10px);
+          background: #fff;
+          padding: 18px 20px;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          font-family: 'Roboto', sans-serif;
+          max-width: 280px;
         }
 
-        .dish-name {
-          margin: 0 0 8px 0;
+        .info-card h3 {
+          margin: 0;
           font-size: 18px;
-          font-weight: bold;
-          color: #333;
-          font-family: Roboto, sans-serif;
+          color: #222;
         }
 
-        .dish-price {
-          margin: 0 0 8px 0;
-          font-size: 16px;
+        .price {
           font-weight: bold;
           color: #4285f4;
-          font-family: Roboto, sans-serif;
+          margin: 4px 0;
         }
 
-        .dish-description {
-          margin: 0 0 12px 0;
+        .desc {
           font-size: 14px;
-          color: #666;
-          line-height: 1.4;
-          font-family: Roboto, sans-serif;
+          color: #555;
+          margin-bottom: 12px;
         }
 
-        .add-to-cart-btn {
+        .cart-btn {
+          padding: 10px 16px;
           background: #4285f4;
           color: white;
           border: none;
-          padding: 8px 16px;
           border-radius: 6px;
-          font-family: Roboto, sans-serif;
           font-size: 14px;
-          font-weight: bold;
           cursor: pointer;
-          transition: background 0.2s ease;
         }
 
-        .add-to-cart-btn:hover {
-          background: #3367d6;
-        }
-
-        .category-filter {
+        .category-menu {
           position: absolute;
           top: 80px;
           right: 20px;
@@ -415,61 +338,44 @@ export default function ModelViewerCarousel() {
           gap: 8px;
         }
 
-        .category-btn {
-          background: rgba(255, 255, 255, 0.9);
-          border: 1px solid #ddd;
+        .cat-btn {
           padding: 8px 12px;
-          border-radius: 6px;
-          font-family: Roboto, sans-serif;
           font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          backdrop-filter: blur(10px);
+          border-radius: 6px;
+          background: #fff;
+          border: 1px solid #ccc;
         }
 
-        .category-btn.active {
+        .cat-btn.active {
           background: #4285f4;
           color: white;
+        }
+
+        .carousel {
+          display: flex;
+          position: absolute;
+          bottom: 20px;
+          width: 100%;
+          justify-content: center;
+          gap: 12px;
+          overflow-x: auto;
+          padding: 0 10px;
+        }
+
+        .thumb {
+          width: 70px;
+          height: 70px;
+          border-radius: 50%;
+          background-size: cover;
+          background-position: center;
+          border: 3px solid #fff;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+          flex-shrink: 0;
+        }
+
+        .thumb.active {
           border-color: #4285f4;
         }
-
-        .category-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        @keyframes circle {
-          from { transform: translateX(-50%) rotate(0deg) translateX(50px) rotate(0deg); }
-          to   { transform: translateX(-50%) rotate(360deg) translateX(50px) rotate(-360deg); }
-        }
-
-        @keyframes elongate {
-          from { transform: translateX(100px); }
-          to   { transform: translateX(-100px); }
-        }
-
-        #ar-button {
-          background-image: url(../../assets/ic_view_in_ar_new_googblue_48dp.png);
-          background-repeat: no-repeat;
-          background-size: 20px 20px;
-          background-position: 12px 50%;
-          background-color: #fff;
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-          white-space: nowrap;
-          bottom: 132px;
-          padding: 0px 16px 0px 40px;
-          font-family: Roboto, sans-serif;
-          font-size: 14px;
-          color: #4285f4;
-          height: 36px;
-          line-height: 36px;
-          border-radius: 18px;
-          border: 1px solid #DADCE0;
-        }
-        #ar-button:active { background-color: #E8EAED; }
-        #ar-button:focus-visible { outline: 1px solid #4285f4; }
       `}</style>
     </div>
   );
