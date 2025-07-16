@@ -63,7 +63,7 @@ export default function ChefStories() {
 
       // 🎥 Video setup
       video = document.createElement("video");
-      video.src = "/chef.mp4";
+      video.src = "/chef2.mp4";
       video.crossOrigin = "anonymous";
       video.loop = true;
       video.muted = false;
