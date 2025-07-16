@@ -63,7 +63,7 @@ export default function ChefStories() {
 
       // 🎥 Video setup
       video = document.createElement("video");
-      video.src = "/hehe.mp4";
+      video.src = "/chef.mp4";
       video.crossOrigin = "anonymous";
       video.loop = true;
       video.muted = false;
@@ -97,10 +97,15 @@ export default function ChefStories() {
 
         if (intersects.length > 0) {
           try {
-            await video.play();
-            console.log("Video playing");
+            if (video.paused) {
+              await video.play();
+              console.log("Video playing");
+            } else {
+              video.pause();
+              console.log("Video paused");
+            }
           } catch (err) {
-            console.warn("Play failed:", err);
+            console.warn(video.paused ? "Play failed:" : "Pause failed:", err);
           }
         }
       });
